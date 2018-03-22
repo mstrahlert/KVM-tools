@@ -4,12 +4,16 @@
 #   Configurable backup-script via virt-backup
 # Magnus Strahlert @ 180306
 #   Method as global option
+# Magnus Strahlert @ 180322
+#   Added support for retention
 
 import ConfigParser
 from datetime import datetime
 import time
 import sys
 import os
+import shutil
+import fnmatch
 
 config = ConfigParser.RawConfigParser()
 config.read('virt-backup.conf')
@@ -50,9 +54,14 @@ for f in clients:
       continue
   else:
     method = config.get("global", "method")
+
+  if config.has_option(f, "retention"):
+    retention = int(config.get(f, "retention"))
+  else:
+    retention = int(config.get("global", "retention"))
  
   # Populate our dictionary of configurations per client
-  backups[f] = { "priority" : priority, "method" : method }
+  backups[f] = { "priority" : priority, "method" : method, "retention" : retention }
 
 # Validate and check various global options
 if not config.has_option("global", "backup_prg"):
@@ -71,13 +80,25 @@ else:
 backup_prg = config.get("global", "backup_prg")
 backup_dir = config.get("global", "backup_dir")
 
-backup_command = "%s --action=convert --snapsize=%s --backupdir=%s --debug" % (backup_prg, snapsize, backup_dir)
+backup_command = "%s --action=convert --snapsize=%s --debug" % (backup_prg, snapsize)
 if config.has_option("global", "compress"):
   backup_command += " --compress"
 
 # Loop through the clients sorted in order of priority
 for k, v in sorted(backups.items(), key=lambda item: (item[1]['priority'], item[0])):
+  # First handle retention
+  if v['retention'] > 1:
+    matches = sorted(fnmatch.filter(os.listdir("%s/%s" % (backup_dir, k)), "[0-9]*-[0-9]*-[0-9]*_[0-9]*-[0-9]*-[0-9]*"))
+    # As long as there are more than set number of backups, remove the oldest
+    while len(matches) > v['retention']:
+      tprint("Removing %s/%s/%s due to retention" % (backup_dir, k, matches[0]))
+      shutil.rmtree("%s/%s/%s" % (backup_dir, k, matches[0]))
+      matches.pop(0)
+
+  # Then do the backup
   tprint("Backing up %s" % k)
+  backup_command += " --backupdir=%s/%s" % (backup_dir, datetime.now().strftime("%F_%H-%M-%S"))
+
   if v['method'] == "shutdown":
     if config.has_option("global", "shutdown_timeout"):
       shutdown_timeout = config.get("global", "shutdown_timeout")
