@@ -9,6 +9,7 @@
 
 import ConfigParser
 from datetime import datetime
+from glob import glob
 import time
 import sys
 import os
@@ -80,7 +81,7 @@ else:
 backup_prg = config.get("global", "backup_prg")
 backup_dir = config.get("global", "backup_dir")
 
-backup_command = "%s --action=convert --snapsize=%s --debug" % (backup_prg, snapsize)
+backup_command = "%s --action=convert --snapsize=%s --debug --backupdir=%s" % (backup_prg, snapsize, backup_dir)
 if config.has_option("global", "compress"):
   backup_command += " --compress"
 
@@ -90,14 +91,16 @@ for k, v in sorted(backups.items(), key=lambda item: (item[1]['priority'], item[
   if v['retention'] > 1:
     matches = sorted(fnmatch.filter(os.listdir("%s/%s" % (backup_dir, k)), "[0-9]*-[0-9]*-[0-9]*_[0-9]*-[0-9]*-[0-9]*"))
     # As long as there are more than set number of backups, remove the oldest
-    while len(matches) > v['retention']:
+    # Since this will create an additional set (the backup that this run will
+    # create), we need to check for greater or equality. Thus we will
+    # momentarily while this run be one under the set retention.
+    while len(matches) >= v['retention']:
       tprint("Removing %s/%s/%s due to retention" % (backup_dir, k, matches[0]))
       shutil.rmtree("%s/%s/%s" % (backup_dir, k, matches[0]))
       matches.pop(0)
 
   # Then do the backup
   tprint("Backing up %s" % k)
-  backup_command += " --backupdir=%s/%s" % (backup_dir, datetime.now().strftime("%F_%H-%M-%S"))
 
   if v['method'] == "shutdown":
     if config.has_option("global", "shutdown_timeout"):
@@ -108,5 +111,12 @@ for k, v in sorted(backups.items(), key=lambda item: (item[1]['priority'], item[
     os.system("%s --vm=%s --shutdown --shutdown-timeout=%s" % (backup_command, k, shutdown_timeout))
   elif v['method'] == "suspend":
     os.system("%s --vm=%s" % (backup_command, k))
+
+  # Move the resulting xml and qcow2 file(s) to retention dir
+  dest_dir = "%s/%s/%s" % (backup_dir, k, datetime.now().strftime("%F_%H-%M-%S"))
+  os.mkdir(dest_dir)
+  shutil.move("%s/%s/%s.xml" % (backup_dir, k, k), dest_dir)
+  for vmdisk in glob("%s/%s/*.qcow2" % (backup_dir, k)):
+    shutil.move("%s" % vmdisk, dest_dir)
 
   time.sleep(int(delay))
