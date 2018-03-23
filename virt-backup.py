@@ -62,7 +62,9 @@ for f in clients:
     retention = int(config.get("global", "retention"))
  
   # Populate our dictionary of configurations per client
-  backups[f] = { "priority" : priority, "method" : method, "retention" : retention }
+  backups[f] = { "priority" : priority,
+                 "method" : method,
+                 "retention" : retention }
 
 # Validate and check various global options
 if not config.has_option("global", "backup_prg"):
@@ -81,15 +83,18 @@ else:
 backup_prg = config.get("global", "backup_prg")
 backup_dir = config.get("global", "backup_dir")
 
-backup_command = "%s --action=convert --snapsize=%s --debug --backupdir=%s" % (backup_prg, snapsize, backup_dir)
+backup_command = ("%s --action=convert --snapsize=%s --debug --backupdir=%s" %
+                 (backup_prg, snapsize, backup_dir))
 if config.has_option("global", "compress"):
   backup_command += " --compress"
 
 # Loop through the clients sorted in order of priority
-for k, v in sorted(backups.items(), key=lambda item: (item[1]['priority'], item[0])):
+for k, v in sorted(backups.items(), key=lambda item: (item[1]['priority'],
+                   item[0])):
   # First handle retention
   if v['retention'] > 1:
-    matches = sorted(fnmatch.filter(os.listdir("%s/%s" % (backup_dir, k)), "[0-9]*-[0-9]*-[0-9]*_[0-9]*-[0-9]*-[0-9]*"))
+    matches = sorted(fnmatch.filter(os.listdir("%s/%s" % (backup_dir, k)),
+                     "[0-9]*-[0-9]*-[0-9]*_[0-9]*-[0-9]*-[0-9]*"))
     # As long as there are more than set number of backups, remove the oldest
     # Since this will create an additional set (the backup that this run will
     # create), we need to check for greater or equality. Thus we will
@@ -108,12 +113,14 @@ for k, v in sorted(backups.items(), key=lambda item: (item[1]['priority'], item[
     else:
       shutdown_timeout = "90"
 
-    os.system("%s --vm=%s --shutdown --shutdown-timeout=%s" % (backup_command, k, shutdown_timeout))
+    os.system("%s --vm=%s --shutdown --shutdown-timeout=%s" %
+              (backup_command, k, shutdown_timeout))
   elif v['method'] == "suspend":
     os.system("%s --vm=%s" % (backup_command, k))
 
   # Move the resulting xml and qcow2 file(s) to retention dir
-  dest_dir = "%s/%s/%s" % (backup_dir, k, datetime.now().strftime("%F_%H-%M-%S"))
+  dest_dir = "%s/%s/%s" % (backup_dir, k,
+                           datetime.now().strftime("%F_%H-%M-%S"))
   os.mkdir(dest_dir)
   shutil.move("%s/%s/%s.xml" % (backup_dir, k, k), dest_dir)
   for vmdisk in glob("%s/%s/*.qcow2" % (backup_dir, k)):

@@ -7,7 +7,8 @@ from subprocess import PIPE, Popen
 import xml.etree.ElementTree as ET
 
 def cmdline(command):
-  process = Popen(args = command, stdout = PIPE, shell = True, universal_newlines = True)
+  process = Popen(args = command, stdout = PIPE, shell = True,
+                  universal_newlines = True)
   return process.communicate()[0]
 
 def main():
@@ -28,7 +29,8 @@ def main():
 
     print("%25s: %.2fGb, %s vcpu" % (vm, int(_mem) / 1024 / 1024., _cpu))
 
-  print("%25s: %.2fGb, %s vcpu" % ("** Total **", int(_memtot) / 1024 / 1024., _cputot))
+  print("%25s: %.2fGb, %s vcpu" % ("** Total **", int(_memtot) / 1024 / 1024.,
+                                   _cputot))
 
 if __name__ == "__main__":
   main()
