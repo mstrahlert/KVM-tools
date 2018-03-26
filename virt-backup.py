@@ -6,18 +6,42 @@
 #   Method as global option
 # Magnus Strahlert @ 180322
 #   Added support for retention
+# Magnus Strahlert @ 180326
+#   Made path to configfile a runtime option
 
 import ConfigParser
 from datetime import datetime
 from glob import glob
+import getopt
 import time
 import sys
 import os
 import shutil
 import fnmatch
 
+try:
+  opts, remainder = getopt.getopt(sys.argv[1:], "c:")
+except getopt.GetoptError:
+  print("Syntax: %s [ -c <configfile ]" % sys.argv[0])
+  sys.exit(2)
+
+# Defaults
+####################################
+configfile = "virt-backup.conf"
+####################################
+
+for opt, arg in opts:
+  if opt == '-c':
+    configfile = arg
+  else:
+    assertFalse("unknown option \"%s\"" % opt)
+
+if os.path.exists(configfile) == False:
+  print("Error: Configfile \"%s\" does not exist" % configfile)
+  sys.exit(2)
+
 config = ConfigParser.RawConfigParser()
-config.read('virt-backup.conf')
+config.read(configfile)
 
 clients = config.sections()
 clients.remove('global')
