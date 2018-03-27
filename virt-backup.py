@@ -116,17 +116,16 @@ if config.has_option("global", "compress"):
 for k, v in sorted(backups.items(), key=lambda item: (item[1]['priority'],
                    item[0])):
   # First handle retention
-  if v['retention'] > 1:
-    matches = sorted(fnmatch.filter(os.listdir("%s/%s" % (backup_dir, k)),
-                     "[0-9]*-[0-9]*-[0-9]*_[0-9]*-[0-9]*-[0-9]*"))
-    # As long as there are more than set number of backups, remove the oldest
-    # Since this will create an additional set (the backup that this run will
-    # create), we need to check for greater or equality. Thus we will
-    # momentarily while this run be one under the set retention.
-    while len(matches) >= v['retention']:
-      tprint("Removing %s/%s/%s due to retention" % (backup_dir, k, matches[0]))
-      shutil.rmtree("%s/%s/%s" % (backup_dir, k, matches[0]))
-      matches.pop(0)
+  matches = sorted(fnmatch.filter(os.listdir("%s/%s" % (backup_dir, k)),
+                   "[0-9]*-[0-9]*-[0-9]*_[0-9]*-[0-9]*-[0-9]*"))
+  # As long as there are more than set number of backups, remove the oldest
+  # Since this will create an additional set (the backup that this run will
+  # create), we need to check for greater or equality. Thus we will
+  # momentarily while this run be one under the set retention.
+  while len(matches) >= v['retention']:
+    tprint("Removing %s/%s/%s due to retention" % (backup_dir, k, matches[0]))
+    shutil.rmtree("%s/%s/%s" % (backup_dir, k, matches[0]))
+    matches.pop(0)
 
   # Then do the backup
   tprint("Backing up %s" % k)
