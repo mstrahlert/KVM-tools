@@ -13,6 +13,6 @@ Configuration is done by editing `virt-backup.conf`.
 In order to run, add `virt-backup.py` as a service in your daemon-tool.
 Configuration is provided for systemd in `virt-backup.service`.
 
-> `cp virt-backup.service /etc/systemd/system/`
-> `systemctl enable virt-backup`
-> `systemctl start virt-backup`
+>    cp virt-backup.service /etc/systemd/system/
+>    systemctl enable virt-backup
+>    systemctl start virt-backup
