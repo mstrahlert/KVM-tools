@@ -10,6 +10,9 @@ Backup VMs by utilising LVM snapshots to copy the diskimage to secondary storage
 
 Configuration is done by editing `virt-backup.conf`.
 
-In order to run, add `virt-backup.py` as a daily reoccuring entry in crontab.
+In order to run, add `virt-backup.py` as a service in your daemon-tool.
+Configuration is provided for systemd in `virt-backup.service`.
 
-> `0 1 * * * /root/virt-backup.py`
+> `cp virt-backup.service /etc/systemd/system/`
+> `systemctl enable virt-backup`
+> `systemctl start virt-backup`

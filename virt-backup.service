@@ -1,0 +1,13 @@
+[Unit]
+Description=Backup handling of virtual KVM guests
+After=syslog.target default.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root
+ExecStart=/root/virt-backup.py
+StandardOutput=syslog
+StandardError=syslog
+
+[Install]
+WantedBy=default.target
