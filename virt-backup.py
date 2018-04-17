@@ -221,16 +221,23 @@ def do_backup(global_config, backups):
       os.system("%s --vm=%s" % (global_config['backup_command'], k))
 
     # Move the resulting xml and qcow2 file(s) to retention dir
+    src_dir = "%s/%s" % (global_config['backup_dir'], k)
     dest_dir = "%s/%s/%s" % (global_config['backup_dir'], k,
                              datetime.now().strftime("%F_%H-%M-%S"))
-    os.mkdir(dest_dir)
-    shutil.move("%s/%s/%s.xml" % (global_config['backup_dir'], k, k),
-                dest_dir)
-    for vmdisk in glob("%s/%s/*.qcow2" % (global_config['backup_dir'], k)):
-      shutil.move("%s" % vmdisk, dest_dir)
 
-    tprint("Backup finished for %s. Scheduling next for %s" %
-           (k, backups[k]['next_backup'].ctime()), global_config['logfile'])
+    # Check if xml dumpfile exists. This is a status indicator.
+    if os.path.exists("%s/%s.xml" % (src_dir, k)):
+      os.mkdir(dest_dir)
+      shutil.move("%s/%s.xml" % (src_dir, k), dest_dir)
+      for vmdisk in glob("%s/*.qcow2" % src_dir):
+        shutil.move("%s" % vmdisk, dest_dir)
+
+      tprint("Backup finished for %s. Scheduling next for %s" % (k,
+             backups[k]['next_backup'].ctime()), global_config['logfile'])
+    else:
+      tprint("Backup failed for %s. Cannot find an xml dumpfile" % (k,
+             global_config['logfile']))
+
     time.sleep(int(global_config['delay']))
 
   return backups
