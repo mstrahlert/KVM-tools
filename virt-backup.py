@@ -235,8 +235,8 @@ def do_backup(global_config, backups):
       tprint("Backup finished for %s. Scheduling next for %s" % (k,
              backups[k]['next_backup'].ctime()), global_config['logfile'])
     else:
-      tprint("Backup failed for %s. Cannot find an xml dumpfile" % (k,
-             global_config['logfile']))
+      tprint("Backup failed for %s. Cannot find an xml dumpfile" % k,
+             global_config['logfile'])
 
     time.sleep(int(global_config['delay']))
 
