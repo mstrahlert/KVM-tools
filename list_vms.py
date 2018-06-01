@@ -24,12 +24,13 @@ def main():
     xmlroot = ET.fromstring(cmdline("virsh dumpxml %s" % vm)) 
     _mem = xmlroot.findtext("memory")
     _cpu = xmlroot.findtext("vcpu")
+    _title = xmlroot.findtext("title")
     _memtot += int(_mem)
     _cputot += int(_cpu)
 
-    print("%25s: %.2fGb, %s vcpu" % (vm, int(_mem) / 1024 / 1024., _cpu))
+    print("%35s: %.2fGb, %s vcpu" % ((_title or vm), int(_mem) / 1024 / 1024., _cpu))
 
-  print("%25s: %.2fGb, %s vcpu" % ("** Total **", int(_memtot) / 1024 / 1024.,
+  print("%35s: %.2fGb, %s vcpu" % ("** Total **", int(_memtot) / 1024 / 1024.,
                                    _cputot))
 
 if __name__ == "__main__":
