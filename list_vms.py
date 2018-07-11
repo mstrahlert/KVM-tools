@@ -11,6 +11,14 @@ def cmdline(command):
                   universal_newlines = True)
   return process.communicate()[0]
 
+def truncate(text, maxlen):
+  if not text:
+    return text
+  if len(text) > maxlen:
+    text = text[:maxlen-2] + ".."
+
+  return text
+
 def main():
   guest_vms = cmdline("virsh list --all --table")
 
@@ -29,7 +37,7 @@ def main():
     _memtot += int(_mem)
     _cputot += int(_cpu)
 
-    print("%35s: %.2fGb, %s vcpu, %s" % ((_title or vm[1]),
+    print("%35s: %.2fGb, %s vcpu, %s" % ((truncate(_title, 34) or vm[1]),
                                          int(_mem) / 1024 / 1024., _cpu,
                                          " ".join(vm[2:])))
 
