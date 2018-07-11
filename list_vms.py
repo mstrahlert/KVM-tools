@@ -12,23 +12,26 @@ def cmdline(command):
   return process.communicate()[0]
 
 def main():
-  guest_vms = cmdline("virsh list --all --name")
+  guest_vms = cmdline("virsh list --all --table")
 
   _memtot=0
   _cputot=0
 
   for vm in guest_vms.splitlines():
-    if len(vm) == False:
+    vm = vm.split()
+    if len(vm) == False or len(vm) < 3 or vm[0] == "Id":
       continue
 
-    xmlroot = ET.fromstring(cmdline("virsh dumpxml %s" % vm)) 
+    xmlroot = ET.fromstring(cmdline("virsh dumpxml %s" % vm[1])) 
     _mem = xmlroot.findtext("memory")
     _cpu = xmlroot.findtext("vcpu")
     _title = xmlroot.findtext("title")
     _memtot += int(_mem)
     _cputot += int(_cpu)
 
-    print("%35s: %.2fGb, %s vcpu" % ((_title or vm), int(_mem) / 1024 / 1024., _cpu))
+    print("%35s: %.2fGb, %s vcpu, %s" % ((_title or vm[1]),
+                                         int(_mem) / 1024 / 1024., _cpu,
+                                         " ".join(vm[2:])))
 
   print("%35s: %.2fGb, %s vcpu" % ("** Total **", int(_memtot) / 1024 / 1024.,
                                    _cputot))
