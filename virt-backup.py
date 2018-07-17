@@ -15,12 +15,19 @@ import ConfigParser
 from datetime import datetime
 from datetime import timedelta
 from glob import glob
+from subprocess import PIPE, Popen
 import getopt
 import time
 import sys
 import os
 import shutil
 import fnmatch
+import libvirt
+
+def cmdline(command):
+  process = Popen(args = command, stdout = PIPE, shell = True,
+                  universal_newlines = True)
+  return process.communicate()[0]
 
 # Print function to get a timestamp infront of the string
 def tprint(msg, logfile = False):
@@ -63,6 +70,9 @@ def parse_config():
   backups = {}
 
   logfile = config.get("global", "logfile")
+  api = config.get("global", "api")
+  if api != "libvirt" and api != "virt-backup":
+    tprint("Error: Unknown api", logfile)
 
   # Parse and check client specific configuration
   for f in clients:
@@ -114,7 +124,7 @@ def parse_config():
                    "next_backup" : False }
 
   # Validate and check various global options
-  if not config.has_option("global", "backup_prg"):
+  if not config.has_option("global", "backup_prg") and api != "libvirt":
     sys.exit("Missing required option backup_prg")
   if not config.has_option("global", "backup_dir"):
     sys.exit("Missing required option backup_dir")
@@ -131,7 +141,10 @@ def parse_config():
   else:
     shutdown_timeout = "90"
 
-  backup_prg = config.get("global", "backup_prg")
+  if api != "libvirt":
+    backup_prg = config.get("global", "backup_prg")
+  else:
+    backup_prg = None
   backup_dir = config.get("global", "backup_dir")
 
   backup_command = ("%s --action=convert --snapsize=%s --backupdir=%s" %
@@ -146,9 +159,124 @@ def parse_config():
                     "backup_dir" : backup_dir,
                     "backup_command" : backup_command,
                     "shutdown_timeout" : shutdown_timeout,
-                    "logfile" : logfile }
+                    "logfile" : logfile,
+                    "api" : api }
 
   return global_config, backups
+
+def shutdown_vm(conn, vm, logfile, shutdown_timeout):
+  dom = conn.lookupByName(vm)
+  if dom.state()[0] == libvirt.VIR_DOMAIN_RUNNING:
+    tprint("%s is running, shutting down" % vm, logfile)
+    dom.shutdown()
+    shutdown_counter = 0
+    while (dom.state()[0] != libvirt.VIR_DOMAIN_SHUTOFF):
+      if (shutdown_counter >= shutdown_timeout):
+        tprint("Timed out waiting for %s to shutdown" % vm, logfile)
+        return False
+
+      shutdown_counter += 1
+      time.sleep(1)
+    tprint("%s has now shutdown" % vm, logfile)
+    return True
+  else:
+    tprint("%s is not running, nothing to do" % vm, logfile)
+    return False
+
+def suspend_vm(conn, vm, logfile):
+  dom = conn.lookupByName(vm)
+  if dom.state()[0] == libvirt.VIR_DOMAIN_RUNNING:
+    tprint("%s is running, suspending" % vm, logfile)
+    dom.suspend()
+    tprint("%s is now suspended" % vm, logfile)
+    return True
+  else:
+    tprint("%s is not running, nothing to do" % vm, logfile)
+    return False
+
+def start_vm(conn, vm, logfile):
+  dom = conn.lookupByName(vm)
+  if dom.state()[0] == libvirt.VIR_DOMAIN_SHUTOFF:
+    tprint("%s is shutoff, restarting" % vm, logfile)
+    dom.create()
+    tprint("%s started" % vm, logfile)
+    return True
+  else:
+    tprint("%s is not in a shutdown state, nothing to do" % vm, logfile)
+    return False
+
+def resume_vm(conn, vm, logfile):
+  dom = conn.lookupByName(vm)
+  if dom.state()[0] == libvirt.VIR_DOMAIN_PAUSED:
+    tprint("%s is suspended, resuming" % vm, logfile)
+    dom.resume()
+    tprint("%s is now resumed" % vm, logfile)
+    return True
+  else:
+    tprint("%s is not suspended, nothing to do" % vm, logfile)
+    return False
+
+def save_xml(conn, vm, logfile, path):
+  dom = conn.lookupByName(vm)
+  with open(path, "w") as xml:
+    xml.write(dom.XMLDesc())
+
+# Return a tuple of all disks that the VM has
+def get_disks(conn, vm):
+  from xml.etree import ElementTree
+  from collections import namedtuple
+
+  dom = conn.lookupByName(vm)
+  root = ElementTree.fromstring(dom.XMLDesc())
+
+  disks = root.findall("./devices/disk[@device='disk']")
+
+  drivers = [disk.find("driver").attrib for disk in disks]
+  sources = [disk.find("source").attrib for disk in disks]
+  targets = [disk.find("target").attrib for disk in disks]
+
+  if len(drivers) != len(sources) != len(targets):
+    return False
+
+  disk_info = namedtuple('DiskInfo', ['device', 'file', 'format'])
+  disks_info = []
+  for i in range(len(sources)):
+    disks_info.append(disk_info(targets[i]["dev"], sources[i]["file"], drivers[i]["type"]))
+  return disks_info
+
+def get_backing_file(file):
+  # Find out the backing file of a snapshot
+  disk_info = cmdline("qemu-img info %s" % file)
+  for line in disk_info.splitlines():
+    key, value = line.split(": ")
+    if key == "backing file":
+      return value
+
+  return False
+
+def libvirt_snapshot(conn, vm, logfile):
+  disks = []
+  # For every disk of the VM, create an external snapshot
+  for disk in get_disks(conn, vm):
+    disks += ["--diskspec %s,snapshot=external" % disk.device]
+  os.system("virsh snapshot-create-as --domain %s --name %s "
+            "--no-metadata --atomic --disk-only %s" %
+            (vm, datetime.now().strftime("%F_%H-%M-%S"), " ".join(disks)))
+
+def libvirt_backup(conn, vm, logfile, backup_dir):
+  if not os.path.isdir("%s/%s" % (backup_dir, vm)):
+    os.mkdir("%s/%s" % (backup_dir, vm))
+  save_xml(conn, vm, logfile, "%s/%s/%s.xml" % (backup_dir, vm, vm))
+
+  disks = []
+  # Copy the backing qcow2 file(s) away as the backup, merge the
+  # snapshots of all disks and then delete the snapshot itself.
+  for disk in get_disks(conn, vm):
+    tprint("Copying %s" % get_backing_file(disk.file), logfile)
+    shutil.copy2(get_backing_file(disk.file), "%s/%s" % (backup_dir, vm))
+    os.system("virsh blockcommit %s %s --active --pivot" % (vm, disk.device))
+    tprint("Removing snapshot %s" % disk.file, logfile)
+    os.remove(disk.file)
 
 def do_backup(global_config, backups):
   # Loop through the clients sorted in order of priority
@@ -213,12 +341,32 @@ def do_backup(global_config, backups):
     tprint("Running backup for %s" % k, global_config['logfile'])
 
     backups[k]['last_backup'] = datetime.now()
+    conn = None
     if v['method'] == "shutdown":
-      os.system("%s --vm=%s --shutdown --shutdown-timeout=%s" %
-                (global_config['backup_command'], k,
-                 global_config['shutdown_timeout']))
+      if global_config['api'] == "virt-backup":
+        os.system("%s --vm=%s --shutdown --shutdown-timeout=%s" %
+                  (global_config['backup_command'], k,
+                   global_config['shutdown_timeout']))
+      elif global_config['api'] == "libvirt":
+        if not conn:
+          conn = libvirt.open("qemu:///system")
+        if shutdown_vm(conn, k, global_config['logfile'],
+                       global_config['shutdown_timeout']):
+          libvirt_snapshot(conn, k, global_config['logfile'])
+          start_vm(conn, vm, global_config['logfile'])
+          libvirt_backup(conn, k, global_config['logfile'],
+                         global_config['backup_dir'])
     elif v['method'] == "suspend":
-      os.system("%s --vm=%s" % (global_config['backup_command'], k))
+      if global_config['api'] == "virt-backup":
+        os.system("%s --vm=%s" % (global_config['backup_command'], k))
+      elif global_config['api'] == "libvirt":
+        if not conn:
+          conn = libvirt.open("qemu:///system")
+        if suspend_vm(conn, k, global_config['logfile']):
+          libvirt_snapshot(conn, k, global_config['logfile'])
+          resume_vm(conn, k, global_config['logfile'])
+          libvirt_backup(conn, k, global_config['logfile'],
+                         global_config['backup_dir'])
 
     # Move the resulting xml and qcow2 file(s) to retention dir
     src_dir = "%s/%s" % (global_config['backup_dir'], k)
