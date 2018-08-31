@@ -258,6 +258,7 @@ def libvirt_snapshot(conn, vm, logfile):
   disks = []
   # For every disk of the VM, create an external snapshot
   for disk in get_disks(conn, vm):
+    tprint("Snapshotting %s" % disk.file, logfile)
     disks += ["--diskspec %s,snapshot=external" % disk.device]
   os.system("virsh snapshot-create-as --domain %s --name %s "
             "--no-metadata --atomic --disk-only %s" %
