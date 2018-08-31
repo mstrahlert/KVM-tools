@@ -353,7 +353,7 @@ def do_backup(global_config, backups):
         if shutdown_vm(conn, k, global_config['logfile'],
                        global_config['shutdown_timeout']):
           libvirt_snapshot(conn, k, global_config['logfile'])
-          start_vm(conn, vm, global_config['logfile'])
+          start_vm(conn, k, global_config['logfile'])
           libvirt_backup(conn, k, global_config['logfile'],
                          global_config['backup_dir'])
     elif v['method'] == "suspend":
