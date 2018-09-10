@@ -286,11 +286,12 @@ def do_backup(global_config, backups):
     # First check if now is a good time to run backup for this client
     now = datetime.now()
 
-    if (v['weekday'] != False and now.strftime('%A').lower()[0:3] !=
-        v['weekday']):
+    if (v['weekday'] != False and now.strftime('%A').lower()[0:3] not in
+        v['weekday'].split(",")):
       # Wrong weekday
       continue
-    if (v['dom'] != False and int(now.strftime('%-d')) != int(v['dom'])):
+    if (v['dom'] != False and int(now.strftime('%-d')) not in
+        map(int, v['dom'].split(","))):
       # Wrong day of month
       continue
 
