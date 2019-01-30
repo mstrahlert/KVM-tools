@@ -23,6 +23,7 @@ def main():
   guest_vms = cmdline("virsh list --all --table")
 
   _memtot=0
+  _memacttot=0
   _cputot=0
 
   arr = {}
@@ -39,13 +40,17 @@ def main():
     _title = xmlroot.findtext("title")
     _memtot += int(_mem)
     _cputot += int(_cpu)
+    if " ".join(vm[1][2:]) == "running":
+      _memacttot += int(_mem)
 
     print("%35s: %.2fGb, %s vcpu, %s" % ((truncate(_title, 34) or vm[1][1]),
                                          int(_mem) / 1024 / 1024., _cpu,
                                          " ".join(vm[1][2:])))
 
-  print("%35s: %.2fGb, %s vcpu" % ("** Total **", int(_memtot) / 1024 / 1024.,
-                                   _cputot))
+  print("%35s: %.2fGb (%.2fGb active), %s vcpu" % ("** Total **",
+                                       int(_memtot) / 1024 / 1024.,
+                                       int(_memacttot) / 1024 / 1024.,
+                                       _cputot))
 
 if __name__ == "__main__":
   main()
