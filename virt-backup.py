@@ -273,8 +273,13 @@ def libvirt_backup(conn, vm, logfile, backup_dir):
   # Copy the backing qcow2 file(s) away as the backup, merge the
   # snapshots of all disks and then delete the snapshot itself.
   for disk in get_disks(conn, vm):
-    tprint("Copying %s" % get_backing_file(disk.file), logfile)
-    shutil.copy2(get_backing_file(disk.file), "%s/%s" % (backup_dir, vm))
+    inf = get_backing_file(disk.file)
+    outf = "%s/%s/%s" % (backup_dir, vm, os.path.basename(inf))
+
+    tprint("Copying %s" % inf, logfile)
+    os.system("dd if=%s of=%s bs=4M iflag=direct oflag=direct "
+              "conv=sparse" % (inf, outf))
+    #shutil.copy2(get_backing_file(disk.file), "%s/%s" % (backup_dir, vm))
     os.system("virsh blockcommit %s %s --active --pivot" % (vm, disk.device))
     tprint("Removing snapshot %s" % disk.file, logfile)
     os.remove(disk.file)
