@@ -43,14 +43,13 @@ def main():
     if " ".join(vm[1][2:]) == "running":
       _memacttot += int(_mem)
 
-    print("%35s: %.2fGb, %s vcpu, %s" % ((truncate(_title, 34) or vm[1][1]),
-                                         int(_mem) / 1024 / 1024., _cpu,
-                                         " ".join(vm[1][2:])))
+    print(u"{title:>35}: {mem:.2f}Gb, {vcpu} vcpu, {state}".format(
+          title=truncate(_title, 34) or vm[1][1], mem=int(_mem) / 1024 / 1024.,
+          vcpu=_cpu, state=" ".join(vm[1][2:])).encode('utf-8'))
 
-  print("%35s: %.2fGb (%.2fGb active), %s vcpu" % ("** Total **",
-                                       int(_memtot) / 1024 / 1024.,
-                                       int(_memacttot) / 1024 / 1024.,
-                                       _cputot))
+  print(u"{title:>35}: {mem:.2f}Gb ({memact:.2f}Gb active), {vcpu} "
+         "vcpu".format(title="** Total **", mem=int(_memtot) / 1024 / 1024.,
+         memact=int(_memacttot) / 1024 / 1024., vcpu=_cputot).encode('utf-8'))
 
 if __name__ == "__main__":
   main()
