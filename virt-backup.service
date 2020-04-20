@@ -8,6 +8,7 @@ WorkingDirectory=/root
 ExecStart=/root/virt-backup.py
 StandardOutput=syslog
 StandardError=syslog
+Restart=on-failure
 
 [Install]
 WantedBy=default.target

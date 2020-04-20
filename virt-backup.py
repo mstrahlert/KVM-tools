@@ -246,7 +246,7 @@ def get_disks(conn, vm):
 
 def get_backing_file(file):
   # Find out the backing file of a snapshot
-  disk_info = cmdline("qemu-img info %s" % file)
+  disk_info = cmdline("qemu-img info --force-share %s" % file)
   for line in disk_info.splitlines():
     key, value = line.split(": ")
     if key == "backing file":
@@ -284,47 +284,53 @@ def libvirt_backup(conn, vm, logfile, backup_dir):
     tprint("Removing snapshot %s" % disk.file, logfile)
     os.remove(disk.file)
 
-def do_backup(global_config, backups):
+def do_backup(global_config, backups, vms = None):
   # Loop through the clients sorted in order of priority
   for k, v in sorted(backups.items(), key=lambda item: (item[1]['priority'],
                      item[0])):
-    # First check if now is a good time to run backup for this client
-    now = datetime.now()
+    # If true this is run in daemon mode and should backup all
+    if vms == None:
+      # First check if now is a good time to run backup for this client
+      now = datetime.now()
 
-    if (v['weekday'] != False and now.strftime('%A').lower()[0:3] not in
-        v['weekday'].split(",")):
-      # Wrong weekday
+      if (v['weekday'] != False and now.strftime('%A').lower()[0:3] not in
+          v['weekday'].split(",")):
+        # Wrong weekday
+        continue
+      if (v['dom'] != False and int(now.strftime('%-d')) not in
+          map(int, v['dom'].split(","))):
+        # Wrong day of month
+        continue
+
+      # Check if we have done a prior backup. If not, work out when it's due
+      if v['next_backup'] == False:
+        next_backup = datetime(now.year, now.month, now.day,
+                               int(v['time'][0:2]), int(v['time'][2:4]))
+        # Find out if the backup window has passed already for today
+        now_mins = now.hour * 60 + now.minute
+        next_mins = int(v['time'][0:2]) * 60 + int(v['time'][2:4])
+        if (now_mins > next_mins):
+          # The initial backup windows has passed, do the backup the next day
+          next_backup += timedelta(1)
+
+        backups[k]['next_backup'] = next_backup
+      else:
+        next_backup = v['next_backup']
+
+      if now < next_backup:
+        # Still not time to do the backup
+        continue
+      else:
+        # The time has come to do the backup. Set the next scheduled
+        # backup at the given time for the backup a day from now.
+        backups[k]['next_backup'] = (datetime(now.year, now.month, now.day,
+                                              int(v['time'][0:2]),
+                                              int(v['time'][2:4])) +
+                                     timedelta(1))
+    # vms have been specified on command line. Turn on manual mode for
+    # existing vms
+    elif k not in vms:
       continue
-    if (v['dom'] != False and int(now.strftime('%-d')) not in
-        map(int, v['dom'].split(","))):
-      # Wrong day of month
-      continue
-
-    # Check if we have done a prior backup. If not, work out when it's due
-    if v['next_backup'] == False:
-      next_backup = datetime(now.year, now.month, now.day,
-                             int(v['time'][0:2]), int(v['time'][2:4]))
-      # Find out if the backup window has passed already for today
-      now_mins = now.hour * 60 + now.minute
-      next_mins = int(v['time'][0:2]) * 60 + int(v['time'][2:4])
-      if (now_mins > next_mins):
-        # The initial backup windows has passed, do the backup the next day
-        next_backup += timedelta(1)
-
-      backups[k]['next_backup'] = next_backup
-    else:
-      next_backup = v['next_backup']
-
-    if now < next_backup:
-      # Still not time to do the backup
-      continue
-    else:
-      # The time has come to do the backup. Set the next scheduled
-      # backup at the given time for the backup a day from now.
-      backups[k]['next_backup'] = (datetime(now.year, now.month, now.day,
-                                            int(v['time'][0:2]),
-                                            int(v['time'][2:4])) +
-                                   timedelta(1))
 
     # Then handle retention
     if os.path.isdir("%s/%s" % (global_config['backup_dir'], k)):
@@ -402,11 +408,15 @@ def main():
   #global_config, backup = parse_config(conffile)
   global_config, backups = parse_config()
 
-  while (True):
-    # Feed the variables back into the function, avoiding global variables
-    # The content of 'backups' can change whereas 'global_config' cannot
-    backups = do_backup(global_config, backups)
-    time.sleep(60)
+  # Allow for manual backups of specified vms on command line
+  if len(sys.argv) > 1:
+    backups = do_backup(global_config, backups, sys.argv[1:])
+  else:
+    while (True):
+      # Feed the variables back into the function, avoiding global variables
+      # The content of 'backups' can change whereas 'global_config' cannot
+      backups = do_backup(global_config, backups)
+      time.sleep(60)
 
 if __name__ == "__main__":
   main()
