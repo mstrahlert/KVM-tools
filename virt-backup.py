@@ -393,8 +393,12 @@ def do_backup(global_config, backups, vms = None):
       for vmdisk in glob("%s/*.qcow2" % src_dir):
         shutil.move("%s" % vmdisk, dest_dir)
 
-      tprint("Backup finished for %s. Scheduling next for %s" % (k,
-             backups[k]['next_backup'].ctime()), global_config['logfile'])
+      # Next scheduled backup only exists when running in daemon mode
+      if vms == None:
+        tprint("Backup finished for %s. Scheduling next for %s" % (k,
+               backups[k]['next_backup'].ctime()), global_config['logfile'])
+      else:
+        tprint("Backup finished for %s." % k, global_config['logfile'])
     else:
       tprint("Backup failed for %s. Cannot find an xml dumpfile" % k,
              global_config['logfile'])
