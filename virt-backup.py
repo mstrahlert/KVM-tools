@@ -31,19 +31,19 @@ def cmdline(command):
 
 # Print function to get a timestamp infront of the string
 def tprint(msg, logfile = False):
-  print("%s: %s" % (datetime.today().ctime(), msg))
+  print("{datetime}: {msg}".format(datetime=datetime.today().ctime(), msg=msg))
 
   if logfile != False:
     now = datetime.now()
     logfile = now.strftime(logfile)
     with open(logfile, "a") as log:
-      log.write("%s: %s\n" % (datetime.today().ctime(), msg))
+      log.write("{datetime}: {msg}\n".format(datetime=datetime.today().ctime(), msg=msg))
 
 def parse_config():
   try:
     opts, remainder = getopt.getopt(sys.argv[1:], "c:")
   except getopt.GetoptError:
-    print("Syntax: %s [ -c <configfile ]" % sys.argv[0])
+    print("Syntax: {cmd} [ -c <configfile ]".format(cmd=sys.argv[0]))
     sys.exit(2)
 
   # Defaults
@@ -55,10 +55,10 @@ def parse_config():
     if opt == '-c':
       configfile = arg
     else:
-      assertFalse("unknown option \"%s\"" % opt)
+      assertFalse("unknown option \"{opt}\"".format(opt=opt))
 
   if os.path.exists(configfile) == False:
-    print("Error: Configfile \"%s\" does not exist" % configfile)
+    print("Error: Configfile \"{configfile}\" does not exist".format(configfile=configfile))
     sys.exit(2)
 
   config = ConfigParser.RawConfigParser()
@@ -71,7 +71,7 @@ def parse_config():
 
   logfile = config.get("global", "logfile")
   api = config.get("global", "api")
-  if api != "libvirt" and api != "virt-backup":
+  if api not in ["libvirt", "virt-backup"]:
     tprint("Error: Unknown api", logfile)
 
   # Parse and check client specific configuration
@@ -91,19 +91,15 @@ def parse_config():
 
     # Set priority to given value between 1 and 99 (default if not entered)
     if config.has_option(f, "priority"):
-      priority = int(config.get(f, "priority"))
-      if priority > 99:
-        priority = 99
-      elif priority < 1:
-        priority = 1
+      priority = max(1, min(99, int(config.get(f, "priority"))))
     else:
       priority = 99
 
     # Verify method. Default method is set by global config if not entered.
     if config.has_option(f, "method"):
       method = config.get(f, "method")
-      if method != "suspend" and method != "shutdown":
-        tprint("Error: Unknown method given for %s" % f, logfile)
+      if method not in ["suspend", "shutdown"]:
+        tprint("Error: Unknown method given for {client}".format(client=f), logfile)
         continue
     else:
       method = config.get("global", "method")
@@ -147,8 +143,9 @@ def parse_config():
     backup_prg = None
   backup_dir = config.get("global", "backup_dir")
 
-  backup_command = ("%s --action=convert --snapsize=%s --backupdir=%s" %
-                   (backup_prg, snapsize, backup_dir))
+  backup_command = ("{cmd} --action=convert --snapsize={snapsize} "
+                    "--backupdir={backup_dir}".format(cmd=backup_prg,
+                     snapsize=snapsize, backup_dir=backup_dir))
   backup_command += " --debug"
   if config.has_option("global", "compress"):
     backup_command += " --compress"
@@ -167,53 +164,53 @@ def parse_config():
 def shutdown_vm(conn, vm, logfile, shutdown_timeout):
   dom = conn.lookupByName(vm)
   if dom.state()[0] == libvirt.VIR_DOMAIN_RUNNING:
-    tprint("%s is running, shutting down" % vm, logfile)
+    tprint("{vm} is running, shutting down".format(vm=vm), logfile)
     dom.shutdown()
     shutdown_counter = 0
     while (dom.state()[0] != libvirt.VIR_DOMAIN_SHUTOFF):
       if (shutdown_counter >= shutdown_timeout):
-        tprint("Timed out waiting for %s to shutdown" % vm, logfile)
+        tprint("Timed out waiting for {vm} to shutdown".format(vm=vm), logfile)
         return False
 
       shutdown_counter += 1
       time.sleep(1)
-    tprint("%s has now shutdown" % vm, logfile)
+    tprint("{vm} has now shutdown".format(vm=vm), logfile)
     return True
   else:
-    tprint("%s is not running, nothing to do" % vm, logfile)
+    tprint("{vm} is not running, nothing to do".format(vm=vm), logfile)
     return False
 
 def suspend_vm(conn, vm, logfile):
   dom = conn.lookupByName(vm)
   if dom.state()[0] == libvirt.VIR_DOMAIN_RUNNING:
-    tprint("%s is running, suspending" % vm, logfile)
+    tprint("{vm} is running, suspending".format(vm=vm), logfile)
     dom.suspend()
-    tprint("%s is now suspended" % vm, logfile)
+    tprint("{vm} is now suspended".format(vm=vm), logfile)
     return True
   else:
-    tprint("%s is not running, nothing to do" % vm, logfile)
+    tprint("{vm} is not running, nothing to do".format(vm=vm), logfile)
     return False
 
 def start_vm(conn, vm, logfile):
   dom = conn.lookupByName(vm)
   if dom.state()[0] == libvirt.VIR_DOMAIN_SHUTOFF:
-    tprint("%s is shutoff, restarting" % vm, logfile)
+    tprint("{vm} is shutoff, restarting".format(vm=vm), logfile)
     dom.create()
-    tprint("%s started" % vm, logfile)
+    tprint("{vm} started".format(vm=vm), logfile)
     return True
   else:
-    tprint("%s is not in a shutdown state, nothing to do" % vm, logfile)
+    tprint("{vm} is not in a shutdown state, nothing to do".format(vm=vm), logfile)
     return False
 
 def resume_vm(conn, vm, logfile):
   dom = conn.lookupByName(vm)
   if dom.state()[0] == libvirt.VIR_DOMAIN_PAUSED:
-    tprint("%s is suspended, resuming" % vm, logfile)
+    tprint("{vm} is suspended, resuming".format(vm=vm), logfile)
     dom.resume()
-    tprint("%s is now resumed" % vm, logfile)
+    tprint("{vm} is now resumed".format(vm=vm), logfile)
     return True
   else:
-    tprint("%s is not suspended, nothing to do" % vm, logfile)
+    tprint("{vm} is not suspended, nothing to do".format(vm=vm), logfile)
     return False
 
 def save_xml(conn, vm, logfile, path):
@@ -246,7 +243,7 @@ def get_disks(conn, vm):
 
 def get_backing_file(file):
   # Find out the backing file of a snapshot
-  disk_info = cmdline("qemu-img info --force-share %s" % file)
+  disk_info = cmdline("qemu-img info --force-share {file}".format(file=file))
   for line in disk_info.splitlines():
     key, value = line.split(": ")
     if key == "backing file":
@@ -258,30 +255,30 @@ def libvirt_snapshot(conn, vm, logfile):
   disks = []
   # For every disk of the VM, create an external snapshot
   for disk in get_disks(conn, vm):
-    tprint("Snapshotting %s" % disk.file, logfile)
-    disks += ["--diskspec %s,snapshot=external" % disk.device]
-  os.system("virsh snapshot-create-as --domain %s --name %s "
-            "--no-metadata --atomic --disk-only %s" %
-            (vm, datetime.now().strftime("%F_%H-%M-%S"), " ".join(disks)))
+    tprint("Snapshotting {disk}".format(disk=disk.file), logfile)
+    disks += ["--diskspec {device},snapshot=external".format(device=disk.device)]
+  os.system("virsh snapshot-create-as --domain {vm} --name {snapshot} "
+            "--no-metadata --atomic --disk-only {disks}".format(vm=vm,
+            snapshot=datetime.now().strftime("%F_%H-%M-%S"), disks=" ".join(disks)))
 
 def libvirt_backup(conn, vm, logfile, backup_dir):
-  if not os.path.isdir("%s/%s" % (backup_dir, vm)):
-    os.mkdir("%s/%s" % (backup_dir, vm))
-  save_xml(conn, vm, logfile, "%s/%s/%s.xml" % (backup_dir, vm, vm))
+  if not os.path.isdir("{dir}/{name}".format(dir=backup_dir, name=vm)):
+    os.mkdir("{dir}/{name}".format(dir=backup_dir, name=vm))
+  save_xml(conn, vm, logfile, "{dir}/{vm}/{vm}.xml".format(dir=backup_dir, vm=vm))
 
   disks = []
   # Copy the backing qcow2 file(s) away as the backup, merge the
   # snapshots of all disks and then delete the snapshot itself.
   for disk in get_disks(conn, vm):
     inf = get_backing_file(disk.file)
-    outf = "%s/%s/%s" % (backup_dir, vm, os.path.basename(inf))
-
-    tprint("Copying %s" % inf, logfile)
-    os.system("dd if=%s of=%s bs=4M iflag=direct oflag=direct "
-              "conv=sparse" % (inf, outf))
+    outf = "{dir}/{vm}/{basename}".format(dir=backup_dir, vm=vm, basename=os.path.basename(inf))
+ 
+    tprint("Copying {inf}".format(inf=inf), logfile)
+    os.system("dd if={inf} of={outf} bs=4M iflag=direct oflag=direct "
+              "conv=sparse".format(inf=inf, outf=outf))
     #shutil.copy2(get_backing_file(disk.file), "%s/%s" % (backup_dir, vm))
-    os.system("virsh blockcommit %s %s --active --pivot" % (vm, disk.device))
-    tprint("Removing snapshot %s" % disk.file, logfile)
+    os.system("virsh blockcommit {vm} {device} --active --pivot".format(vm=vm, device=disk.device))
+    tprint("Removing snapshot {file}".format(disk.file), logfile)
     os.remove(disk.file)
 
 def do_backup(global_config, backups, vms = None):
@@ -333,9 +330,9 @@ def do_backup(global_config, backups, vms = None):
       continue
 
     # Then handle retention
-    if os.path.isdir("%s/%s" % (global_config['backup_dir'], k)):
-      matches = sorted(fnmatch.filter(os.listdir("%s/%s" %
-                       (global_config['backup_dir'], k)),
+    if os.path.isdir("{dir}/{vm}".format(dir=global_config['backup_dir'], vm=k)):
+      matches = sorted(fnmatch.filter(os.listdir("{dir}/{vm}".format(
+                       dir=global_config['backup_dir'], vm=k)),
                        "[0-9]*-[0-9]*-[0-9]*_[0-9]*-[0-9]*-[0-9]*"))
       # As long as there are more than set number of backups, remove the
       # oldest. Since this will create an additional set (the backup that
@@ -343,23 +340,23 @@ def do_backup(global_config, backups, vms = None):
       # Thus we will momentarily while this run be one under the set
       # retention.
       while len(matches) >= v['retention']:
-        tprint("Removing %s/%s/%s due to retention" %
-               (global_config['backup_dir'], k, matches[0]),
+        tprint("Removing {dir}/{vm}/{name} due to retention".format(
+               dir=global_config['backup_dir'], vm=k, name=matches[0]),
                global_config['logfile'])
-        shutil.rmtree("%s/%s/%s" % (global_config['backup_dir'], k,
-                                    matches[0]))
+        shutil.rmtree("{dir}/{vm}/{name}".format(dir=global_config['backup_dir'], vm=k,
+                                    name=matches[0]))
         matches.pop(0)
 
     # Then do the backup
-    tprint("Running backup for %s" % k, global_config['logfile'])
+    tprint("Running backup for {vm}".format(vm=k), global_config['logfile'])
 
     backups[k]['last_backup'] = datetime.now()
     conn = None
     if v['method'] == "shutdown":
       if global_config['api'] == "virt-backup":
-        os.system("%s --vm=%s --shutdown --shutdown-timeout=%s" %
-                  (global_config['backup_command'], k,
-                   global_config['shutdown_timeout']))
+        os.system("{cmd} --vm={vm} --shutdown --shutdown-timeout={timeout}".format(
+                  cmd=global_config['backup_command'], vm=k,
+                  timeout=global_config['shutdown_timeout']))
       elif global_config['api'] == "libvirt":
         if not conn:
           conn = libvirt.open("qemu:///system")
@@ -371,7 +368,7 @@ def do_backup(global_config, backups, vms = None):
                          global_config['backup_dir'])
     elif v['method'] == "suspend":
       if global_config['api'] == "virt-backup":
-        os.system("%s --vm=%s" % (global_config['backup_command'], k))
+        os.system("{cmd} --vm={vm}".format(cmd=global_config['backup_command'], vm=k))
       elif global_config['api'] == "libvirt":
         if not conn:
           conn = libvirt.open("qemu:///system")
@@ -382,25 +379,25 @@ def do_backup(global_config, backups, vms = None):
                          global_config['backup_dir'])
 
     # Move the resulting xml and qcow2 file(s) to retention dir
-    src_dir = "%s/%s" % (global_config['backup_dir'], k)
-    dest_dir = "%s/%s/%s" % (global_config['backup_dir'], k,
-                             datetime.now().strftime("%F_%H-%M-%S"))
+    src_dir = "{dir}/{vm}".format(dir=global_config['backup_dir'], vm=k)
+    dest_dir = "{dir}/{vm}/{datetime}".format(dir=global_config['backup_dir'], vm=k,
+                             datetime=datetime.now().strftime("%F_%H-%M-%S"))
 
     # Check if xml dumpfile exists. This is a status indicator.
-    if os.path.exists("%s/%s.xml" % (src_dir, k)):
+    if os.path.exists("{dir}/{vm}.xml".format(dir=src_dir, vm=k)):
       os.mkdir(dest_dir)
-      shutil.move("%s/%s.xml" % (src_dir, k), dest_dir)
-      for vmdisk in glob("%s/*.qcow2" % src_dir):
-        shutil.move("%s" % vmdisk, dest_dir)
+      shutil.move("{dir}/{vm}.xml".format(dir=src_dir, vm=k), dest_dir)
+      for vmdisk in glob("{dir}/*.qcow2".format(dir=src_dir)):
+        shutil.move("{disk}".format(disk=vmdisk), dest_dir)
 
       # Next scheduled backup only exists when running in daemon mode
       if vms == None:
-        tprint("Backup finished for %s. Scheduling next for %s" % (k,
-               backups[k]['next_backup'].ctime()), global_config['logfile'])
+        tprint("Backup finished for {vm}. Scheduling next for {datetime}".format(vm=k,
+               datetime=backups[k]['next_backup'].ctime()), global_config['logfile'])
       else:
-        tprint("Backup finished for %s." % k, global_config['logfile'])
+        tprint("Backup finished for {vm}.".format(vm=k), global_config['logfile'])
     else:
-      tprint("Backup failed for %s. Cannot find an xml dumpfile" % k,
+      tprint("Backup failed for {vm}. Cannot find an xml dumpfile".format(vm=k),
              global_config['logfile'])
 
     time.sleep(int(global_config['delay']))
