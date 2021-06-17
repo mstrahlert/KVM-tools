@@ -39,7 +39,7 @@ def tprint(msg, logfile = False):
     with open(logfile, "a") as log:
       log.write("{datetime}: {msg}\n".format(datetime=datetime.today().ctime(), msg=msg))
 
-def parse_config():
+def conffile_mtime():
   try:
     opts, remainder = getopt.getopt(sys.argv[1:], "c:")
   except getopt.GetoptError:
@@ -61,6 +61,9 @@ def parse_config():
     print("Error: Configfile \"{configfile}\" does not exist".format(configfile=configfile))
     sys.exit(2)
 
+  return configfile, os.stat(configfile).st_mtime
+
+def parse_config(configfile):
   config = ConfigParser.RawConfigParser()
   config.read(configfile)
 
@@ -407,13 +410,20 @@ def do_backup(global_config, backups, vms = None):
 def main():
   #conffile = read_config()
   #global_config, backup = parse_config(conffile)
-  global_config, backups = parse_config()
+  configfile, configfile_mtime = conffile_mtime()
+  global_config, backups = parse_config(configfile)
 
   # Allow for manual backups of specified vms on command line
   if len(sys.argv) > 1:
     backups = do_backup(global_config, backups, sys.argv[1:])
   else:
     while (True):
+      # Reread configfile if it has changed
+      configfile, configfile_mtime_now = conffile_mtime()
+      if configfile_mtime != configfile_mtime_now:
+        configfile, configfile_mtime = conffile_mtime()
+        global_config, backups = parse_config(configfile)
+
       # Feed the variables back into the function, avoiding global variables
       # The content of 'backups' can change whereas 'global_config' cannot
       backups = do_backup(global_config, backups)
