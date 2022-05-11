@@ -165,7 +165,12 @@ def parse_config(configfile):
   return global_config, backups
 
 def shutdown_vm(conn, vm, logfile, shutdown_timeout):
-  dom = conn.lookupByName(vm)
+  try:
+    dom = conn.lookupByName(vm)
+  except:
+    tprint("{vm} does not exist".format(vm=vm), logfile)
+    return False
+
   if dom.state()[0] == libvirt.VIR_DOMAIN_RUNNING:
     tprint("{vm} is running, shutting down".format(vm=vm), logfile)
     dom.shutdown()
@@ -184,7 +189,12 @@ def shutdown_vm(conn, vm, logfile, shutdown_timeout):
     return False
 
 def suspend_vm(conn, vm, logfile):
-  dom = conn.lookupByName(vm)
+  try:
+    dom = conn.lookupByName(vm)
+  except:
+    tprint("{vm} does not exist".format(vm=vm), logfile)
+    return False
+
   if dom.state()[0] == libvirt.VIR_DOMAIN_RUNNING:
     tprint("{vm} is running, suspending".format(vm=vm), logfile)
     dom.suspend()
@@ -195,7 +205,12 @@ def suspend_vm(conn, vm, logfile):
     return False
 
 def start_vm(conn, vm, logfile):
-  dom = conn.lookupByName(vm)
+  try:
+    dom = conn.lookupByName(vm)
+  except:
+    tprint("{vm} does not exist".format(vm=vm), logfile)
+    return False
+
   if dom.state()[0] == libvirt.VIR_DOMAIN_SHUTOFF:
     tprint("{vm} is shutoff, restarting".format(vm=vm), logfile)
     dom.create()
@@ -206,7 +221,12 @@ def start_vm(conn, vm, logfile):
     return False
 
 def resume_vm(conn, vm, logfile):
-  dom = conn.lookupByName(vm)
+  try:
+    dom = conn.lookupByName(vm)
+  except:
+    tprint("{vm} does not exist".format(vm=vm), logfile)
+    return False
+
   if dom.state()[0] == libvirt.VIR_DOMAIN_PAUSED:
     tprint("{vm} is suspended, resuming".format(vm=vm), logfile)
     dom.resume()
@@ -408,8 +428,6 @@ def do_backup(global_config, backups, vms = None):
   return backups
 
 def main():
-  #conffile = read_config()
-  #global_config, backup = parse_config(conffile)
   configfile, configfile_mtime = conffile_mtime()
   global_config, backups = parse_config(configfile)
 
@@ -419,8 +437,7 @@ def main():
   else:
     while (True):
       # Reread configfile if it has changed
-      configfile, configfile_mtime_now = conffile_mtime()
-      if configfile_mtime != configfile_mtime_now:
+      if os.stat(configfile).st_mtime != configfile_mtime:
         configfile, configfile_mtime = conffile_mtime()
         global_config, backups = parse_config(configfile)
 
