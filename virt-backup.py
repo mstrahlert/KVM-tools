@@ -301,7 +301,7 @@ def libvirt_backup(conn, vm, logfile, backup_dir):
               "conv=sparse".format(inf=inf, outf=outf))
     #shutil.copy2(get_backing_file(disk.file), "%s/%s" % (backup_dir, vm))
     os.system("virsh blockcommit {vm} {device} --active --pivot".format(vm=vm, device=disk.device))
-    tprint("Removing snapshot {file}".format(disk.file), logfile)
+    tprint("Removing snapshot {file}".format(file=disk.file), logfile)
     os.remove(disk.file)
 
 def do_backup(global_config, backups, vms = None):
