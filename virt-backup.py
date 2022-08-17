@@ -297,8 +297,7 @@ def libvirt_backup(conn, vm, logfile, backup_dir):
     outf = "{dir}/{vm}/{basename}".format(dir=backup_dir, vm=vm, basename=os.path.basename(inf))
  
     tprint("Copying {inf}".format(inf=inf), logfile)
-    os.system("dd if={inf} of={outf} bs=4M iflag=direct oflag=direct "
-              "conv=sparse".format(inf=inf, outf=outf))
+    os.system("qemu-img convert -q -f qcow2 -O qcow2 {inf} {outf}".format(inf=inf, outf=outf))
     #shutil.copy2(get_backing_file(disk.file), "%s/%s" % (backup_dir, vm))
     os.system("virsh blockcommit {vm} {device} --active --pivot".format(vm=vm, device=disk.device))
     tprint("Removing snapshot {file}".format(file=disk.file), logfile)
