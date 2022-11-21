@@ -4,8 +4,8 @@ After=syslog.target default.target
 
 [Service]
 Type=simple
-WorkingDirectory=/root
-ExecStart=/root/virt-backup.py
+WorkingDirectory=/tmp
+ExecStart=/usr/bin/virt-backup.py
 StandardOutput=syslog
 StandardError=syslog
 Restart=on-failure

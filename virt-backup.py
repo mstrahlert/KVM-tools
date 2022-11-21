@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Magnus Strahlert @ 171206
 #   Configurable backup-script via virt-backup
@@ -11,7 +11,7 @@
 # Magnus Strahlert @ 180413
 #   Support for daemonisation
 
-import ConfigParser
+import configparser
 from datetime import datetime
 from datetime import timedelta
 from glob import glob
@@ -48,7 +48,7 @@ def conffile_mtime():
 
   # Defaults
   ####################################
-  configfile = "virt-backup.conf"
+  configfile = "/etc/virt-backup.conf"
   ####################################
 
   for opt, arg in opts:
@@ -64,7 +64,7 @@ def conffile_mtime():
   return configfile, os.stat(configfile).st_mtime
 
 def parse_config(configfile):
-  config = ConfigParser.RawConfigParser()
+  config = configparser.RawConfigParser()
   config.read(configfile)
 
   clients = config.sections()
