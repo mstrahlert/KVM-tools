@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Magnus Strahlert @ 211028
 #   Parses virt-backup.conf and shows it as a compact list
