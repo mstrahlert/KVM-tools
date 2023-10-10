@@ -80,7 +80,7 @@ def parse_config(configfile):
   # Parse and check client specific configuration
   for f in clients:
     if config.has_option(f, "weekday"):
-      weekday = config.get(f, "weekday").lower()[0:3]
+      weekday = config.get(f, "weekday").lower()
     else:
       weekday = False
     if config.has_option(f, "time"):
@@ -176,7 +176,7 @@ def shutdown_vm(conn, vm, logfile, shutdown_timeout):
     dom.shutdown()
     shutdown_counter = 0
     while (dom.state()[0] != libvirt.VIR_DOMAIN_SHUTOFF):
-      if (shutdown_counter >= shutdown_timeout):
+      if (shutdown_counter >= int(shutdown_timeout)):
         tprint("Timed out waiting for {vm} to shutdown".format(vm=vm), logfile)
         return False
 
